@@ -1,11 +1,15 @@
 package cn.yaoguangl.autotransmissioncontrol;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.util.Log;
 import android.widget.TextView;
 
@@ -14,6 +18,7 @@ import com.clj.fastble.callback.BleGattCallback;
 import com.clj.fastble.callback.BleIndicateCallback;
 import com.clj.fastble.callback.BleNotifyCallback;
 import com.clj.fastble.callback.BleScanCallback;
+import com.clj.fastble.callback.BleWriteCallback;
 import com.clj.fastble.data.BleDevice;
 import com.clj.fastble.exception.BleException;
 
@@ -52,7 +57,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onScanFinished(List<BleDevice> scanResultList) {
                 for (BleDevice bleDevice : scanResultList) {
-                    if (bleDevice.getName() != null && bleDevice.getName().equals("HC-08")) {
+                    if (bleDevice.getName() != null && bleDevice.getName().equals("JDY-18")) {
                         connectBlueTooth(bleDevice);
                         break;
                     }
@@ -76,6 +81,33 @@ public class MainActivity extends AppCompatActivity {
 
             }
 
+            int count = 0;
+            Handler mhandler = new Handler() {
+                @Override
+                public void handleMessage(@NonNull Message msg) {
+                    super.handleMessage(msg);
+                    mBluetoothGattCharacteristic.setValue(Integer.toString(count));
+                    Log.i("AutoTrans", "set value " + count);
+                    count++;
+                    BleManager.getInstance().write(mBluetoothDevice, mBluetoothGattService.getUuid().toString(), mBluetoothGattCharacteristic.getUuid().toString(), new String("nihao#").getBytes() ,new BleWriteCallback(){
+
+                        @Override
+                        public void onWriteSuccess(int current, int total, byte[] justWrite) {
+                            Log.i("AutoTrans", "onWriteSuccess " + count);
+                        }
+
+                        @Override
+                        public void onWriteFailure(BleException exception) {
+
+                        }
+                    });
+                    mhandler.sendEmptyMessageDelayed(1,1000);
+
+                }
+            };
+            BluetoothGattCharacteristic mBluetoothGattCharacteristic;
+            BluetoothGattService mBluetoothGattService;
+            BleDevice mBluetoothDevice;
             @Override
             public void onConnectSuccess(BleDevice bleDevice, BluetoothGatt gatt, int status) {
                 StringBuilder stringBuilder = new StringBuilder();
@@ -88,7 +120,10 @@ public class MainActivity extends AppCompatActivity {
                         stringBuilder.append( "特性 :" + bluetoothGattCharacteristic.getUuid() + " \n");
                         if (bluetoothGattCharacteristic.getUuid().toString().equals(HEART_RATE_MEASUREMENT)) {
                             Log.i("AutoTrans", "start notify service" + bluetoothGattService.getUuid().toString() + " chara " +  bluetoothGattCharacteristic.getUuid().toString());
-                            /*
+                            mBluetoothGattCharacteristic = bluetoothGattCharacteristic;
+                            mBluetoothDevice = bleDevice;
+                            mBluetoothGattService =bluetoothGattService;
+                            mhandler.sendEmptyMessage(1);
                             BleManager.getInstance().notify(bleDevice, bluetoothGattService.getUuid().toString(), bluetoothGattCharacteristic.getUuid().toString(), new BleNotifyCallback() {
                                 @Override
                                 public void onNotifySuccess() {
@@ -102,11 +137,15 @@ public class MainActivity extends AppCompatActivity {
 
                                 @Override
                                 public void onCharacteristicChanged(byte[] data) {
-
+                                    try {
+                                        Log.i("AutoTrans", "data = " + new String(data, 0, data.length, "GB2312"));
+                                    } catch (UnsupportedEncodingException e) {
+                                        e.printStackTrace();
+                                    }
                                 }
                             });
-                             */
 
+                            /*
                             BleManager.getInstance().indicate(bleDevice, bluetoothGattService.getUuid().toString(), bluetoothGattCharacteristic.getUuid().toString(), new BleIndicateCallback() {
                                 @Override
                                 public void onIndicateSuccess() {
@@ -127,6 +166,7 @@ public class MainActivity extends AppCompatActivity {
                                     }
                                 }
                             });
+                            */
 
                         }
                     }
